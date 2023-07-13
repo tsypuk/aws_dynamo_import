@@ -3,59 +3,73 @@ import json
 import gzip
 import argparse
 import datetime
+import multiprocessing
+from functools import partial
 
 # DynamoDB target table (should be created already)
-wcu_import = 100
+wcu_import = 500
 rcu_import = 1
 wcu_post_import = 1
 rcu_post_import = 1
 
 
-def process_json_objects(session, json_objects, args):
+def write_item_to_dynamodb(region, bucket, table_name, json_object):
+    session = boto3.Session(region_name=region)
+    dynamodb_client = session.client('dynamodb')
     s3_client = session.client('s3')
+    # Get the S3 JSON.gz file path from the JSON object
+    # print(f"Processing {json_object['dataFileS3Key']}")
+
+    # Read the JSON.gz file from the S3 bucket
+    response = s3_client.get_object(Bucket=bucket, Key=json_object['dataFileS3Key'])
+    gzipped_data = response['Body'].read()
+
+    # Decompress the gzipped data
+    json_data = gzip.decompress(gzipped_data).decode('utf-8')
+
+    # Parse the JSON data
+    json_data = json_data.strip().split('\n')
+    json_items = []
+    for item in json_data:
+        json_items.append(json.loads(item))
+
+    for item in json_items:
+        dynamodb_client.put_item(
+            TableName=table_name,
+            Item=item['Item']
+        )
+
+
+def process_json_objects(json_objects, args):
+    session = boto3.Session(region_name=args.region)
     dynamodb_client = session.client('dynamodb')
 
     # Set higher WCU for faster Import
-    dynamodb_client.update_table(
-        TableName=args.table,
-        ProvisionedThroughput={
-            'ReadCapacityUnits': rcu_import,
-            'WriteCapacityUnits': wcu_import
-        }
-    )
+    # dynamodb_client.update_table(
+    #     TableName=args.table,
+    #     ProvisionedThroughput={
+    #         'ReadCapacityUnits': rcu_import,
+    #         'WriteCapacityUnits': wcu_import
+    #     }
+    # )
 
-    for json_object in json_objects:
-        # Get the S3 JSON.gz file path from the JSON object
-        print(f"Processing {json_object['dataFileS3Key']}")
+    # Create a multiprocessing pool with the number of desired workers
+    pool = multiprocessing.Pool()
+    func = partial(write_item_to_dynamodb, args.region, args.bucket, args.table)
+    pool.map(func, json_objects)
 
-        # Read the JSON.gz file from the S3 bucket
-        response = s3_client.get_object(Bucket=args.bucket, Key=json_object['dataFileS3Key'])
-        gzipped_data = response['Body'].read()
-
-        # Decompress the gzipped data
-        json_data = gzip.decompress(gzipped_data).decode('utf-8')
-
-        # Parse the JSON data
-        json_data = json_data.strip().split('\n')
-        json_items = []
-        for item in json_data:
-            json_items.append(json.loads(item))
-
-        for item in json_items:
-            dynamodb_client.put_item(
-                TableName=args.table,
-                Item=item['Item']
-            )
-            print(item['Item'])
+    # Close the pool
+    pool.close()
+    pool.join()
 
     # Set the Read/Write Capacity Units post import completed
-    dynamodb_client.update_table(
-        TableName=args.table,
-        ProvisionedThroughput={
-            'ReadCapacityUnits': rcu_post_import,
-            'WriteCapacityUnits': wcu_post_import
-        }
-    )
+    # dynamodb_client.update_table(
+    #     TableName=args.table,
+    #     ProvisionedThroughput={
+    #         'ReadCapacityUnits': rcu_post_import,
+    #         'WriteCapacityUnits': wcu_post_import
+    #     }
+    # )
 
 
 def main():
@@ -92,7 +106,7 @@ def main():
             data_count = data_count + data['itemCount']
 
     print(f'Total items to import: {data_count}')
-    process_json_objects(session, manifest_chunks, args)
+    process_json_objects(manifest_chunks, args)
     print("End Time:", datetime.datetime.now())
 
 
