@@ -34,10 +34,14 @@ To speed up the process, some optimization are applied:
 - region: AWS region for boto3
 
 ## Managing dependencies with Poetry
+
 ```shell
 poetry install
 poetry run python main.py             
 ```
 
 ## Managing dependencies with PIP
+
+```shell
 pip install -r requirements.txt
+```
