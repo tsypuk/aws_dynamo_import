@@ -20,6 +20,21 @@ The flow is:
 python main.py --export=01689247414762-5086b7df --bucket=ddb-export --table=target-table
 ```
 4. Your target table will be populated from DataDump
+5. Check the output with Details:
+
+```shell
+Start Time: 2023-07-13 20:23:20.260872
+Total items to import: 4205
+Processing AWSDynamoDB/01689247414762-5086b7df/data/4knr5vr7ta7xzjdmf5wtstymsm.json.gz partition with 1007 items.
+100%|██████████| 1007/1007 [00:52<00:00, 19.13it/s]
+Processing AWSDynamoDB/01689247414762-5086b7df/data/doh7szv44m7z3iubuurbtrlsre.json.gz partition with 1019 items.
+100%|██████████| 1019/1019 [00:58<00:00, 17.47it/s]
+Processing AWSDynamoDB/01689247414762-5086b7df/data/ajb3rxoet42ivlk4t664t27die.json.gz partition with 1029 items.
+100%|██████████| 1029/1029 [00:55<00:00, 18.50it/s]
+Processing AWSDynamoDB/01689247414762-5086b7df/data/fcyaiq4ysazohblxp32pzf2w7q.json.gz partition with 1150 items.
+100%|██████████| 1150/1150 [01:06<00:00, 17.24it/s]
+End Time: 2023-07-13 20:27:17.165702
+```
 
 ### Parallel execution
 To speed up the process, some optimization are applied:

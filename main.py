@@ -58,7 +58,7 @@ def process_json_objects(json_objects, args):
     # )
 
     # Create a multiprocessing pool with the number of desired workers
-    pool = multiprocessing.Pool(2)
+    pool = multiprocessing.Pool(1)
     func = partial(write_item_to_dynamodb, args.region, args.bucket, args.table)
     pool.map(func, json_objects)
 
