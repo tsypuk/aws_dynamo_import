@@ -32,3 +32,12 @@ To speed up the process, some optimization are applied:
 - table: target table name where to import the Data
 - bucket: bucket key where import is located
 - region: AWS region for boto3
+
+## Managing dependencies with Poetry
+```shell
+poetry install
+poetry run python main.py             
+```
+
+## Managing dependencies with PIP
+pip install -r requirements.txt
