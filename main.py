@@ -5,6 +5,7 @@ import argparse
 import datetime
 import multiprocessing
 from functools import partial
+from tqdm import tqdm
 
 # DynamoDB target table (should be created already)
 wcu_import = 500
@@ -21,6 +22,7 @@ def write_item_to_dynamodb(region, bucket, table_name, json_object):
     # print(f"Processing {json_object['dataFileS3Key']}")
 
     # Read the JSON.gz file from the S3 bucket
+    print(f"Processing {json_object['dataFileS3Key']} partition with {json_object['itemCount']} items.")
     response = s3_client.get_object(Bucket=bucket, Key=json_object['dataFileS3Key'])
     gzipped_data = response['Body'].read()
 
@@ -33,11 +35,13 @@ def write_item_to_dynamodb(region, bucket, table_name, json_object):
     for item in json_data:
         json_items.append(json.loads(item))
 
+    pbar = tqdm(total=len(json_items))
     for item in json_items:
         dynamodb_client.put_item(
             TableName=table_name,
             Item=item['Item']
         )
+        pbar.update()
 
 
 def process_json_objects(json_objects, args):
@@ -54,7 +58,7 @@ def process_json_objects(json_objects, args):
     # )
 
     # Create a multiprocessing pool with the number of desired workers
-    pool = multiprocessing.Pool()
+    pool = multiprocessing.Pool(2)
     func = partial(write_item_to_dynamodb, args.region, args.bucket, args.table)
     pool.map(func, json_objects)
 
@@ -87,7 +91,6 @@ def main():
 
     # TODO Add information about the import
 
-    # TODO Add progress bar
     # Read the JSON file from the S3 bucket
     session = boto3.Session(region_name=args.region)
     s3_client = session.client('s3')
@@ -100,10 +103,12 @@ def main():
     # Process each JSON object
     for json_obj in json_objects:
         data = json.loads(json_obj)
-        print(data)
+        # print(data)
         if data['itemCount'] > 0:
             manifest_chunks.append(data)
             data_count = data_count + data['itemCount']
+
+    # TODO Add progress bar
 
     print(f'Total items to import: {data_count}')
     process_json_objects(manifest_chunks, args)
