@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "aws-dynamo-import"
+version = "0.1.0"
+description = "Tool to import into pre-created DynamoDB Table from AWS Export S3 files"
+authors = ["Roman Tsypuk <tsypuk.conf@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "aws_dynamo_import"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+boto3 = "^1.28.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

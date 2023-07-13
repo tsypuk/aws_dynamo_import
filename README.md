@@ -17,7 +17,7 @@ The flow is:
 2. Create new Table using cli, IaC or AWS console with all desired indexes
 3. Run script and provide configuration in parameters
 ```shell
-python import.py --export=01689247414762-5086b7df --bucket=ddb-export --table=target-table
+python main.py --export=01689247414762-5086b7df --bucket=ddb-export --table=target-table
 ```
 4. Your target table will be populated from DataDump
 
