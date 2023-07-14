@@ -58,8 +58,7 @@ def process_json_objects(export_chunks, args):
     # )
 
     # Create a multiprocessing pool with the number of desired workers
-    # TODO extract pool size to args
-    pool = multiprocessing.Pool(1)
+    pool = multiprocessing.Pool(int(args.pool))
     func = partial(write_items_from_export_chunk_to_dynamodb, args.region, args.bucket, args.table)
     pool.map(func, export_chunks)
 
@@ -101,6 +100,7 @@ def main():
     parser.add_argument('--bucket', type=str, help='S3 bucket with DynamoDB backup', required=True)
     parser.add_argument('--export', type=str, help='DynamoDB Export id in S3', required=True)
     parser.add_argument('--region', type=str, help='AWS region', required=False, default='eu-west-1')
+    parser.add_argument('--pool', type=str, help='Multiprocessing #', required=False, default='1')
     args = parser.parse_args()
 
     session = boto3.Session(region_name=args.region)

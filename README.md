@@ -70,6 +70,7 @@ To speed up the process, some optimization are applied:
 - table: target table name where to import the Data
 - bucket: bucket key where import is located
 - region: AWS region for boto3
+- pool: size on the pool of multiprocessing executors (each is processing partition in parallel to others). Default value is 1 - single thread sequential execution partition by partition. 
 
 ## Managing dependencies with Poetry
 
