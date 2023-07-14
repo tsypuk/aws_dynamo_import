@@ -2,17 +2,27 @@
 
 ## Problem statement
 
-AWS provides DynamoDB Table export/import functionality, according to documentation(https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/S3DataImport.HowItWorks.html):
+AWS provides DynamoDB Table export/import functionality.
+According to aws docs (https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/S3DataImport.HowItWorks.html):
 
 > **Note**
 > Your data will be imported into a new DynamoDB table, which will be created when you initiate the import request. You can create this table with secondary indexes, then query and update your data across all primary and secondary indexes as soon as the import is complete. You can also add a global table replica after the import is complete.
 
-However, it does not support LSI. The target table where data is exported will be created *WITHOUT* LSI. This creates a problem.
+However, it does not support LSI. The target table is created by AWS Export will be created *WITHOUT* LSI. 
+Since LSIs can be created only during table setup time, and there is no control on Index of AWS Export - this creates a big problem.
+
+**Data Access patterns will differ or will break the app logic.**
 
 ## Intention
 
-This tool allow to use AWS DynamoDB Exports and import them into new table with previously created LSI, GSI, etc.
-The flow is:
+This tool allows to use proprietary AWS DynamoDB Exports (located on S3) and import them into new table or existing one (with previously created configurations, LSI, GSI, etc).
+
+## Supported DynamoDB export formats
+
+- json.gz (dumps are extracted/unpackaged from gz)
+
+## Execution flow
+
 1. Launch AWS Data Export from your source table
 2. Create new Table using cli, IaC or AWS console with all desired indexes
 3. Run script and provide configuration in parameters
