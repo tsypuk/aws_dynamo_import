@@ -34,7 +34,20 @@ python main.py --export=01689247414762-5086b7df --bucket=ddb-export --table=targ
 
 ```shell
 Start Time: 2023-07-13 20:23:20.260872
-Total items to import: 4205
+
+    S3 bucket with export: ddb-export
+    S3 SSE algorithm: AES256
+    export output format: DYNAMODB_JSON
+    
+    Export ARN: arn:aws:dynamodb:eu-west-1:123456789:table/source-table-name/export/01689247414762-5086b7df
+    Export duration: 2023-07-13T11:23:34.762Z - 2023-07-13T11:28:43.215Z
+    Export execution time: 2023-07-13T11:23:34.762Z
+    
+    Source Exported Table: arn:aws:dynamodb:eu-west-1:123456789:table/source-table-name
+    Items count: 4205
+    
+Items count calculated in export chunks: 4205
+
 Processing AWSDynamoDB/01689247414762-5086b7df/data/4knr5vr7ta7xzjdmf5wtstymsm.json.gz partition with 1007 items.
 100%|██████████| 1007/1007 [00:52<00:00, 19.13it/s]
 Processing AWSDynamoDB/01689247414762-5086b7df/data/doh7szv44m7z3iubuurbtrlsre.json.gz partition with 1019 items.

@@ -14,7 +14,7 @@ wcu_post_import = 1
 rcu_post_import = 1
 
 
-def write_item_to_dynamodb(region, bucket, table_name, json_object):
+def write_items_from_export_chunk_to_dynamodb(region, bucket, table_name, export_chunk):
     session = boto3.Session(region_name=region)
     dynamodb_client = session.client('dynamodb')
     s3_client = session.client('s3')
@@ -22,8 +22,8 @@ def write_item_to_dynamodb(region, bucket, table_name, json_object):
     # print(f"Processing {json_object['dataFileS3Key']}")
 
     # Read the JSON.gz file from the S3 bucket
-    print(f"Processing {json_object['dataFileS3Key']} partition with {json_object['itemCount']} items.")
-    response = s3_client.get_object(Bucket=bucket, Key=json_object['dataFileS3Key'])
+    print(f"Processing {export_chunk['dataFileS3Key']} partition with {export_chunk['itemCount']} items.")
+    response = s3_client.get_object(Bucket=bucket, Key=export_chunk['dataFileS3Key'])
     gzipped_data = response['Body'].read()
 
     # Decompress the gzipped data
@@ -44,7 +44,7 @@ def write_item_to_dynamodb(region, bucket, table_name, json_object):
         pbar.update()
 
 
-def process_json_objects(json_objects, args):
+def process_json_objects(export_chunks, args):
     session = boto3.Session(region_name=args.region)
     dynamodb_client = session.client('dynamodb')
 
@@ -58,9 +58,10 @@ def process_json_objects(json_objects, args):
     # )
 
     # Create a multiprocessing pool with the number of desired workers
+    # TODO extract pool size to args
     pool = multiprocessing.Pool(1)
-    func = partial(write_item_to_dynamodb, args.region, args.bucket, args.table)
-    pool.map(func, json_objects)
+    func = partial(write_items_from_export_chunk_to_dynamodb, args.region, args.bucket, args.table)
+    pool.map(func, export_chunks)
 
     # Close the pool
     pool.close()
@@ -76,6 +77,21 @@ def process_json_objects(json_objects, args):
     # )
 
 
+def show_stat(json_summary):
+    print(f"""
+    S3 bucket with export: {json_summary['s3Bucket']}
+    S3 SSE algorithm: {json_summary['s3SseAlgorithm']}
+    export output format: {json_summary['outputFormat']}
+    
+    Export ARN: {json_summary['exportArn']}
+    Export duration: {json_summary['startTime']} - {json_summary['endTime']}
+    Export execution time: {json_summary['exportTime']}
+    
+    Source Exported Table: {json_summary['tableArn']}
+    Items count: {json_summary['itemCount']}
+    """)
+
+
 def main():
     print("Start Time:", datetime.datetime.now())
 
@@ -87,32 +103,39 @@ def main():
     parser.add_argument('--region', type=str, help='AWS region', required=False, default='eu-west-1')
     args = parser.parse_args()
 
-    manifest_json_file_path = f"AWSDynamoDB/{args.export}/manifest-files.json"
-
-    # TODO Add information about the import
-
-    # Read the JSON file from the S3 bucket
     session = boto3.Session(region_name=args.region)
     s3_client = session.client('s3')
-    response = s3_client.get_object(Bucket=args.bucket, Key=manifest_json_file_path)
-    json_data = response['Body'].read().decode('utf-8')
-    json_objects = json_data.strip().split('\n')
 
-    manifest_chunks = []
+    manifest_summary_json_file_path = f"AWSDynamoDB/{args.export}/manifest-summary.json"
+
+    json_summary = load_from_s3(args.bucket, manifest_summary_json_file_path, s3_client)
+    data = json.loads(json_summary[0])
+    show_stat(data)
+
+    manifest_json_file_path = data['manifestFilesS3Key']
+
+    json_manifest = load_from_s3(args.bucket, manifest_json_file_path, s3_client)
+
+    export_chunks = []
     data_count = 0
+
     # Process each JSON object
-    for json_obj in json_objects:
+    for json_obj in json_manifest:
         data = json.loads(json_obj)
         # print(data)
         if data['itemCount'] > 0:
-            manifest_chunks.append(data)
+            export_chunks.append(data)
             data_count = data_count + data['itemCount']
 
-    # TODO Add progress bar
-
-    print(f'Total items to import: {data_count}')
-    process_json_objects(manifest_chunks, args)
+    print(f'Items count calculated in export chunks: {data_count}')
+    process_json_objects(export_chunks, args)
     print("End Time:", datetime.datetime.now())
+
+
+def load_from_s3(bucket, manifest_json_file_path, s3_client):
+    response = s3_client.get_object(Bucket=bucket, Key=manifest_json_file_path)
+    json_data = response['Body'].read().decode('utf-8')
+    return json_data.strip().split('\n')
 
 
 if __name__ == "__main__":
