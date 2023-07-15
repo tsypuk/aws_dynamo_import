@@ -1,4 +1,4 @@
-# Import into existing table from AWS DynamoDB Export
+# Import into existing DynamoDB Table from AWS DynamoDB Export located in S3
 
 ## Problem statement
 
@@ -48,14 +48,14 @@ Start Time: 2023-07-13 20:23:20.260872
     
 Items count calculated in export chunks: 4205
 
-Processing AWSDynamoDB/01689247414762-5086b7df/data/4knr5vr7ta7xzjdmf5wtstymsm.json.gz partition with 1007 items.
-100%|██████████| 1007/1007 [00:52<00:00, 19.13it/s]
-Processing AWSDynamoDB/01689247414762-5086b7df/data/doh7szv44m7z3iubuurbtrlsre.json.gz partition with 1019 items.
-100%|██████████| 1019/1019 [00:58<00:00, 17.47it/s]
-Processing AWSDynamoDB/01689247414762-5086b7df/data/ajb3rxoet42ivlk4t664t27die.json.gz partition with 1029 items.
-100%|██████████| 1029/1029 [00:55<00:00, 18.50it/s]
-Processing AWSDynamoDB/01689247414762-5086b7df/data/fcyaiq4ysazohblxp32pzf2w7q.json.gz partition with 1150 items.
-100%|██████████| 1150/1150 [01:06<00:00, 17.24it/s]
+Processing 1007 items from AWSDynamoDB/01689247414762-5086b7df/data/4knr5vr7ta7xzjdmf5wtstymsm.json.gz
+Processing 1150 items from AWSDynamoDB/01689247414762-5086b7df/data/fcyaiq4ysazohblxp32pzf2w7q.json.gz
+Processing 1019 items from AWSDynamoDB/01689247414762-5086b7df/data/doh7szv44m7z3iubuurbtrlsre.json.gz
+Processing 1029 items from AWSDynamoDB/01689247414762-5086b7df/data/ajb3rxoet42ivlk4t664t27die.json.gz
+100%|██████████| 1029/1029 [01:02<00:00, 16.42it/s]
+100%|██████████| 1019/1019 [01:05<00:00, 15.60it/s]
+100%|██████████| 1007/1007 [01:05<00:00, 15.32it/s]
+100%|██████████| 1150/1150 [01:13<00:00, 15.65it/s]
 End Time: 2023-07-13 20:27:17.165702
 ```
 

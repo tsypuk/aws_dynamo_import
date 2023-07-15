@@ -8,7 +8,7 @@ from functools import partial
 from tqdm import tqdm
 
 # DynamoDB target table (should be created already)
-wcu_import = 500
+wcu_import = 100
 rcu_import = 1
 wcu_post_import = 1
 rcu_post_import = 1
@@ -19,43 +19,39 @@ def write_items_from_export_chunk_to_dynamodb(region, bucket, table_name, export
     dynamodb_client = session.client('dynamodb')
     s3_client = session.client('s3')
     # Get the S3 JSON.gz file path from the JSON object
-    # print(f"Processing {json_object['dataFileS3Key']}")
 
     # Read the JSON.gz file from the S3 bucket
-    print(f"Processing {export_chunk['dataFileS3Key']} partition with {export_chunk['itemCount']} items.")
+    print(f"Processing {export_chunk['itemCount']} items from {export_chunk['dataFileS3Key']}")
     response = s3_client.get_object(Bucket=bucket, Key=export_chunk['dataFileS3Key'])
     gzipped_data = response['Body'].read()
 
     # Decompress the gzipped data
     json_data = gzip.decompress(gzipped_data).decode('utf-8')
 
-    # Parse the JSON data
-    json_data = json_data.strip().split('\n')
-    json_items = []
-    for item in json_data:
-        json_items.append(json.loads(item))
+    pbar = tqdm(total=export_chunk['itemCount'])
 
-    pbar = tqdm(total=len(json_items))
-    for item in json_items:
+    # Parse the JSON data DynamoDB Item
+    json_data = json_data.strip().split('\n')
+    for item in json_data:
         dynamodb_client.put_item(
             TableName=table_name,
-            Item=item['Item']
+            Item=json.loads(item)['Item']
         )
         pbar.update()
 
 
-def process_json_objects(export_chunks, args):
+def process_export_chunks(export_chunks, args):
     session = boto3.Session(region_name=args.region)
     dynamodb_client = session.client('dynamodb')
 
     # Set higher WCU for faster Import
-    # dynamodb_client.update_table(
-    #     TableName=args.table,
-    #     ProvisionedThroughput={
-    #         'ReadCapacityUnits': rcu_import,
-    #         'WriteCapacityUnits': wcu_import
-    #     }
-    # )
+    dynamodb_client.update_table(
+        TableName=args.table,
+        ProvisionedThroughput={
+            'ReadCapacityUnits': rcu_import,
+            'WriteCapacityUnits': wcu_import
+        }
+    )
 
     # Create a multiprocessing pool with the number of desired workers
     pool = multiprocessing.Pool(int(args.pool))
@@ -67,13 +63,13 @@ def process_json_objects(export_chunks, args):
     pool.join()
 
     # Set the Read/Write Capacity Units post import completed
-    # dynamodb_client.update_table(
-    #     TableName=args.table,
-    #     ProvisionedThroughput={
-    #         'ReadCapacityUnits': rcu_post_import,
-    #         'WriteCapacityUnits': wcu_post_import
-    #     }
-    # )
+    dynamodb_client.update_table(
+        TableName=args.table,
+        ProvisionedThroughput={
+            'ReadCapacityUnits': rcu_post_import,
+            'WriteCapacityUnits': wcu_post_import
+        }
+    )
 
 
 def show_stat(json_summary):
@@ -128,7 +124,7 @@ def main():
             data_count = data_count + data['itemCount']
 
     print(f'Items count calculated in export chunks: {data_count}')
-    process_json_objects(export_chunks, args)
+    process_export_chunks(export_chunks, args)
     print("End Time:", datetime.datetime.now())
 
 
