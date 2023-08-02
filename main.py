@@ -1,47 +1,35 @@
+import time
+
 import boto3
 import json
 import gzip
 import argparse
 import datetime
 import multiprocessing
-from functools import partial
 from tqdm import tqdm
 
 # DynamoDB target table (should be created already)
-wcu_import = 100
+wcu_import_single_process = 35
 rcu_import = 1
 wcu_post_import = 1
 rcu_post_import = 1
 
 
-def write_items_from_export_chunk_to_dynamodb(region, bucket, table_name, export_chunk):
-    session = boto3.Session(region_name=region)
+def write_items_to_dynamodb(json_data, args):
+    pbar = tqdm(total=len(json_data))
+    session = boto3.Session(region_name=args.region)
     dynamodb_client = session.client('dynamodb')
-    s3_client = session.client('s3')
-    # Get the S3 JSON.gz file path from the JSON object
-
-    # Read the JSON.gz file from the S3 bucket
-    print(f"Processing {export_chunk['itemCount']} items from {export_chunk['dataFileS3Key']}")
-    response = s3_client.get_object(Bucket=bucket, Key=export_chunk['dataFileS3Key'])
-    gzipped_data = response['Body'].read()
-
-    # Decompress the gzipped data
-    json_data = gzip.decompress(gzipped_data).decode('utf-8')
-
-    pbar = tqdm(total=export_chunk['itemCount'])
-
-    # Parse the JSON data DynamoDB Item
-    json_data = json_data.strip().split('\n')
     for item in json_data:
         dynamodb_client.put_item(
-            TableName=table_name,
+            TableName=args.table,
             Item=json.loads(item)['Item']
         )
         pbar.update()
 
 
-def process_export_chunks(export_chunks, args):
+def process_export_chunks(export_chunks, data_count, args):
     session = boto3.Session(region_name=args.region)
+    s3_client = session.client('s3')
     dynamodb_client = session.client('dynamodb')
 
     # Set higher WCU for faster Import
@@ -49,27 +37,43 @@ def process_export_chunks(export_chunks, args):
         TableName=args.table,
         ProvisionedThroughput={
             'ReadCapacityUnits': rcu_import,
-            'WriteCapacityUnits': wcu_import
+            'WriteCapacityUnits': wcu_import_single_process * int(args.pool)
         }
     )
 
-    # Create a multiprocessing pool with the number of desired workers
-    pool = multiprocessing.Pool(int(args.pool))
-    func = partial(write_items_from_export_chunk_to_dynamodb, args.region, args.bucket, args.table)
-    pool.map(func, export_chunks)
+    chunk_size = data_count // int(args.pool)
+    print(f"Chunk size is per process: {chunk_size}")
+    result = []
+    with multiprocessing.Pool(processes=int(args.pool)) as pool:
+        for export_chunk in export_chunks:
+            print(f"Processing {export_chunk['itemCount']} items from {export_chunk['dataFileS3Key']}")
+            response = s3_client.get_object(Bucket=args.bucket, Key=export_chunk['dataFileS3Key'])
+            gzipped_data = response['Body'].read()
+            json_data = gzip.decompress(gzipped_data).decode('utf-8')
+            json_data = json_data.strip().split('\n')
+            for item in json_data:
+                result.append(item)
+                if len(result) >= chunk_size:
+                    pool.apply_async(write_items_to_dynamodb, (result, args))
+                    result = []
+        if len(result) > 0:
+            pool.apply_async(write_items_to_dynamodb, (result, args))
 
-    # Close the pool
-    pool.close()
-    pool.join()
+        # Wait for all tasks to complete
+        pool.close()
+        pool.join()
 
-    # Set the Read/Write Capacity Units post import completed
-    dynamodb_client.update_table(
-        TableName=args.table,
-        ProvisionedThroughput={
-            'ReadCapacityUnits': rcu_post_import,
-            'WriteCapacityUnits': wcu_post_import
-        }
-    )
+        time.sleep(5)
+
+        print("Wait 5 seconds to free WCU")
+        # Set the Read/Write Capacity Units post import completed
+        dynamodb_client.update_table(
+            TableName=args.table,
+            ProvisionedThroughput={
+                'ReadCapacityUnits': rcu_post_import,
+                'WriteCapacityUnits': wcu_post_import
+            }
+        )
 
 
 def show_stat(json_summary):
@@ -124,7 +128,7 @@ def main():
             data_count = data_count + data['itemCount']
 
     print(f'Items count calculated in export chunks: {data_count}')
-    process_export_chunks(export_chunks, args)
+    process_export_chunks(export_chunks, data_count, args)
     print("End Time:", datetime.datetime.now())
 
 
